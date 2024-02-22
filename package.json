@@ -1,0 +1,22 @@
+{
+  "name": "icast",
+  "version": "1.0.0",
+  "description": "This is icast on JS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/azzamwildan462/icast-js.git"
+  },
+  "keywords": [
+    "multicast"
+  ],
+  "author": "Wildan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/azzamwildan462/icast-js/issues"
+  },
+  "homepage": "https://github.com/azzamwildan462/icast-js#readme"
+}
