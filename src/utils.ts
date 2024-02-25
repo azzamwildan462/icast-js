@@ -18,6 +18,12 @@ interface any_onj_t {
   value: any;
 }
 
+interface offset_size_t {
+  offset: Uint32Array;
+  size: Uint32Array;
+  type: string;
+}
+
 //==============================================================
 
 function memcpy(
@@ -99,6 +105,7 @@ export {
   MULTICAST_DEFS,
   DICTIONARY_DEFS,
   any_onj_t,
+  offset_size_t,
   memset,
   memcpy,
   single_int8,
