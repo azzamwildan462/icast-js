@@ -1,7 +1,7 @@
 import { single_int8 } from "./utils";
 
 class Multicast {
-  init(ip: string, port: Uint16Array): Int8Array {
+  async init(ip: string, port: Uint16Array): Promise<Int8Array> {
     return single_int8(99);
   }
   send(data: any): Int8Array {

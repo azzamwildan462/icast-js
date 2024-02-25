@@ -1,5 +1,5 @@
 import { Multicast } from "./multicast";
-import { single_int8, single_uint16 } from "./utils";
+import { MULTICAST_DEFS, single_int8, single_uint16 } from "./utils";
 import * as dgram from "dgram";
 
 class MulticastV1 extends Multicast {
@@ -11,17 +11,12 @@ class MulticastV1 extends Multicast {
 
   //=================================================
 
-  private callback_init: (ret: Int8Array) => void;
   callback_on_recv: (data: any, sender: any) => void;
 
   //=================================================
 
-  constructor(
-    callback_init: (ret: Int8Array) => void,
-    callback_on_recv: (data: any, sender: any) => void
-  ) {
+  constructor(callback_on_recv: (data: any, sender: any) => void) {
     super();
-    this.callback_init = callback_init;
     this.callback_on_recv = callback_on_recv;
 
     this.time_start = new Date().getTime();
@@ -29,7 +24,27 @@ class MulticastV1 extends Multicast {
 
   //====================================================
 
-  init(ip: string, port: Uint16Array): Int8Array {
+  private async bindSync(): Promise<void> {
+    this.sock.bind(this.port[0]);
+
+    return new Promise((resolve) => {
+      this.sock.on("listening", () => {
+        this.sockaddr_in = this.sock.address();
+
+        // Add socket to multicast membership, so he can recv packets
+        this.sock.addMembership(this.ip);
+
+        // Set multicast ttl
+        this.sock.setMulticastTTL(128);
+
+        resolve();
+      });
+    });
+  }
+
+  //====================================================
+
+  async init(ip: string, port: Uint16Array): Promise<Int8Array> {
     let ret: Int8Array = single_int8(99);
 
     this.ip = ip;
@@ -37,8 +52,8 @@ class MulticastV1 extends Multicast {
 
     // Validate multicast addr
     ret = this.validate_multicast_addr(this.ip);
-    if (ret[0] != 0) {
-      this.callback_init(ret);
+    if (ret[0] != MULTICAST_DEFS.SUCCESS) {
+      ret[0] = MULTICAST_DEFS.ADDRESS_PROHIBITED;
       return ret;
     }
 
@@ -50,24 +65,11 @@ class MulticastV1 extends Multicast {
       console.error(`Socket error: ${err.message}`);
     });
 
-    // This callback is called once
-    this.sock.on("listening", () => {
-      this.sockaddr_in = this.sock.address();
-
-      // Add socket to multicast membership, so he can recv packets
-      this.sock.addMembership(this.ip);
-
-      // Set multicast ttl
-      this.sock.setMulticastTTL(128);
-
-      ret[0] = 0;
-      this.callback_init(ret);
-    });
-
     this.sock.on("message", this.callback_on_recv);
 
-    this.sock.bind(this.port[0]);
+    await this.bindSync();
 
+    ret[0] = MULTICAST_DEFS.SUCCESS;
     return ret;
   }
   send(data: any): Int8Array {

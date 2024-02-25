@@ -1,5 +1,25 @@
 import * as fs from "fs";
 
+enum MULTICAST_DEFS {
+  ADDRESS_PROHIBITED = -1,
+  SUCCESS = 0,
+}
+
+enum DICTIONARY_DEFS {
+  EMPTY_DICTIONARY = -3,
+  INVALID_DICTIONARY_PATH = -2,
+  INVALID_ID = -1,
+  SUCCESS = 0,
+}
+
+//=============================================================
+
+interface any_onj_t {
+  value: any;
+}
+
+//==============================================================
+
 function memcpy(
   destination: Uint8Array,
   source: Uint8Array,
@@ -38,27 +58,54 @@ function single_uint16(default_value: number = 0): Uint16Array {
   return ret;
 }
 
+function single_uint32(default_value: number = 0): Uint32Array {
+  const ret = new Uint32Array([default_value]);
+  return ret;
+}
+
 function get_time_now_ms(): number {
   return new Date().getTime();
 }
 
-function read_json(
-  path_to_json: string,
-  cllbck_success: (data: any) => void,
-  cllbck_err: (err: any) => void
-): void {
-  fs.promises
-    .readFile(path_to_json, "utf-8")
-    .then(cllbck_success)
-    .catch(cllbck_err);
+async function read_json_blocking(
+  path_to_string: string,
+  ret_obj_ptr: any_onj_t
+): Promise<void> {
+  return fs.promises
+    .readFile(path_to_string, "utf-8")
+    .then((json_data) => {
+      ret_obj_ptr.value = JSON.parse(json_data);
+    })
+    .catch((err) => {
+      ret_obj_ptr.value = "";
+    });
+}
+
+function dict_types_to_size(input_str: string): Uint32Array {
+  const regex = /(int|uint|float)(\d+)(?:\[(\d+)\])?/;
+
+  const match = input_str.match(regex);
+  let ret_size: number = 0;
+
+  if (match) {
+    ret_size = Number(match[2]);
+    if (match[3] != undefined) ret_size = Number(match[2]) * Number(match[3]);
+  }
+
+  return single_uint32(ret_size);
 }
 
 export {
+  MULTICAST_DEFS,
+  DICTIONARY_DEFS,
+  any_onj_t,
   memset,
   memcpy,
   single_int8,
   single_uint8,
   single_uint16,
+  single_uint32,
   get_time_now_ms,
-  read_json,
+  read_json_blocking,
+  dict_types_to_size,
 };
