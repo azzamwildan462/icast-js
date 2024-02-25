@@ -1,0 +1,163 @@
+import { MulticastV1 } from "../src/multicast_v1";
+import { get_time_now_ms, single_int8, single_uint16 } from "../src/utils";
+
+const m_ip = "224.16.32.10";
+const m_port = 6475;
+
+describe("Multicast Class structure", () => {
+  it("should have a structure from multicast abstract", () => {
+    const mock_callback_init = jest.fn();
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(
+      mock_callback_init,
+      mock_callback_on_recv
+    );
+
+    expect(multicastV1.init(m_ip, single_uint16(m_port))).not.toEqual(
+      single_int8(99)
+    );
+    expect(multicastV1.send("irisits")).not.toEqual(single_int8(99));
+    expect(multicastV1.close()).not.toEqual(single_int8(99));
+    expect(multicastV1.check_rts()).not.toEqual(single_int8(99));
+    expect(multicastV1.get_wall_time_now_ms()).not.toEqual(99);
+  });
+});
+
+describe("Multicast basic", () => {
+  it("should init with zero return", (done) => {
+    const mock_callback_init = jest.fn();
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(
+      mock_callback_init,
+      mock_callback_on_recv
+    );
+
+    multicastV1.init(m_ip, single_uint16(m_port));
+
+    setTimeout(() => {
+      expect(mock_callback_init).toHaveBeenCalledWith(single_int8(0));
+
+      done();
+    }, 50);
+  });
+  it("should have a valid wall timer", (done) => {
+    const mock_callback_init = jest.fn();
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(
+      mock_callback_init,
+      mock_callback_on_recv
+    );
+    const time_start = get_time_now_ms();
+
+    setTimeout(() => {
+      const time_now = get_time_now_ms();
+      const dt = time_now - time_start;
+      const error_time = dt - multicastV1.get_wall_time_now_ms();
+
+      expect(Math.abs(error_time)).toBeLessThan(0.15);
+      done();
+    }, 100);
+  });
+  it("should close the socket", (done) => {
+    const mock_callback_init = jest.fn();
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(
+      mock_callback_init,
+      mock_callback_on_recv
+    );
+
+    multicastV1.init(m_ip, single_uint16(m_port));
+
+    const spy2 = jest.spyOn(multicastV1.sock, "close");
+    const spy = jest.spyOn(multicastV1, "close");
+
+    multicastV1.close();
+
+    setTimeout(() => {
+      expect(spy).toHaveBeenCalled();
+      expect(spy2).toHaveBeenCalled();
+      done();
+    }, 50);
+  });
+
+  it("shoud error when ip multicast not supported", (done) => {
+    const mock_callback_init = jest.fn();
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(
+      mock_callback_init,
+      mock_callback_on_recv
+    );
+
+    multicastV1.init("192.168.1.69", single_uint16(2314));
+
+    setTimeout(() => {
+      expect(mock_callback_init).toHaveBeenCalledWith(single_int8(-1));
+      done();
+    }, 50);
+  });
+});
+
+describe("Multicast send and recv", () => {
+  const msg_to_send = "irisits";
+
+  it("should send message", (done) => {
+    const mock_callback_init = jest.fn();
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(
+      mock_callback_init,
+      mock_callback_on_recv
+    );
+
+    multicastV1.init(m_ip, single_uint16(m_port));
+
+    const spy2 = jest.spyOn(multicastV1.sock, "send");
+    const spy = jest.spyOn(multicastV1, "send");
+    const ret_send = multicastV1.send(msg_to_send);
+
+    setTimeout(() => {
+      expect(spy).toHaveBeenCalled();
+      expect(spy2).toHaveBeenCalledWith(
+        msg_to_send,
+        0,
+        msg_to_send.length,
+        m_port,
+        m_ip
+      );
+      expect(ret_send).toEqual(single_int8(0));
+      done();
+    }, 50);
+  });
+
+  // MASIH SALAH
+  it("should receive a message", (done) => {
+    const mock_callback_init = jest.fn();
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(
+      mock_callback_init,
+      mock_callback_on_recv
+    );
+
+    let recv_data: any;
+    let recv_addr: any;
+
+    mock_callback_on_recv.mockImplementation((data: any, sender: any) => {
+      recv_data = data.toString();
+      recv_addr = sender.address;
+    });
+
+    multicastV1.init(m_ip, single_uint16(m_port));
+
+    const cllbck_init = jest.fn();
+    const cllbck_recv = jest.fn();
+    const m_sender = new MulticastV1(cllbck_init, cllbck_recv);
+
+    m_sender.init(m_ip, single_uint16(m_port));
+    m_sender.send(msg_to_send);
+
+    setTimeout(() => {
+      expect(mock_callback_on_recv).toHaveBeenCalled();
+      expect(recv_data).toEqual(msg_to_send);
+      done();
+    }, 50);
+  });
+});
