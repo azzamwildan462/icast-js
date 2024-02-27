@@ -6,8 +6,10 @@ class MulticastV1 extends Multicast {
   ip: string = "";
   port: Uint16Array = single_uint16(0);
   sock: any;
+  iface_ip_addr: any;
   time_start: number = 0;
   sockaddr_in: any;
+  use_default_iface: boolean;
 
   //=================================================
 
@@ -20,12 +22,14 @@ class MulticastV1 extends Multicast {
     this.callback_on_recv = callback_on_recv;
 
     this.time_start = new Date().getTime();
+    this.use_default_iface = false;
   }
 
   //====================================================
 
   private async bindSync(): Promise<void> {
-    this.sock.bind(this.port[0]);
+    if (this.use_default_iface) this.sock.bind(this.port[0]);
+    else this.sock.bind(this.port[0], this.iface_ip_addr);
 
     return new Promise((resolve) => {
       this.sock.on("listening", () => {
@@ -44,16 +48,28 @@ class MulticastV1 extends Multicast {
 
   //====================================================
 
-  async init(ip: string, port: Uint16Array): Promise<Int8Array> {
+  async init(
+    ip: string,
+    port: Uint16Array,
+    nw_iface: string = ""
+  ): Promise<Int8Array> {
     let ret: Int8Array = single_int8(99);
 
     this.ip = ip;
     this.port = port;
 
+    // Validate interface
+    ret = this.find_interface_ip(nw_iface, this.iface_ip_addr);
+    if (ret[0] == MULTICAST_DEFS.USE_DEFAULT_IFACE) {
+      ret[0] = ret[0] & ~MULTICAST_DEFS.USE_DEFAULT_IFACE;
+      this.use_default_iface = true;
+    } else if (ret[0] != MULTICAST_DEFS.SUCCESS) {
+      return ret;
+    }
+
     // Validate multicast addr
     ret = this.validate_multicast_addr(this.ip);
     if (ret[0] != MULTICAST_DEFS.SUCCESS) {
-      ret[0] = MULTICAST_DEFS.ADDRESS_PROHIBITED;
       return ret;
     }
 

@@ -62,13 +62,31 @@ describe("Multicast basic", () => {
     expect(spy2).toHaveBeenCalled();
   });
 
-  it("shoud error when ip multicast not supported", async () => {
+  it("should error when ip multicast not supported", async () => {
     const mock_callback_on_recv = jest.fn();
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
     await expect(
       multicastV1.init("192.168.1.89", single_uint16(m_port))
     ).resolves.toEqual(single_int8(MULTICAST_DEFS.ADDRESS_PROHIBITED));
+  });
+
+  it("should error when use false interface", async () => {
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(mock_callback_on_recv);
+
+    await expect(
+      multicastV1.init("224.168.1.89", single_uint16(m_port), "eno69")
+    ).resolves.toEqual(single_int8(MULTICAST_DEFS.INTERFACE_NOT_FOUND));
+  });
+
+  it("should error when interface not be able to use", async () => {
+    const mock_callback_on_recv = jest.fn();
+    const multicastV1 = new MulticastV1(mock_callback_on_recv);
+
+    await expect(
+      multicastV1.init("224.168.1.89", single_uint16(m_port), "lo")
+    ).resolves.toEqual(single_int8(MULTICAST_DEFS.PROHIBITED_INTERFACE));
   });
 });
 
