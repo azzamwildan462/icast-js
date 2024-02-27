@@ -155,13 +155,14 @@ class Dictionary {
     });
   }
 
-  get_offset_size(
-    id: Int8Array,
-    key: string,
-    offset_size_ptr: offset_size_t
-  ): void {
+  get_offset_size(id: Int8Array, key: string): offset_size_t {
     let key_level1: string;
     key_level1 = "agent" + String(id[0]);
+
+    let offset_size: offset_size_t;
+    offset_size = {} as offset_size_t;
+    offset_size.size = single_uint32(0);
+    offset_size.offset = single_uint32(0);
 
     //===============================
 
@@ -169,12 +170,12 @@ class Dictionary {
     if (key == "") {
       for (const dict_leve1 of this.dictionary_structure) {
         if (key_level1 == dict_leve1.name) {
-          offset_size_ptr.offset = dict_leve1.offset;
-          offset_size_ptr.size = dict_leve1.size;
+          offset_size.offset = dict_leve1.offset;
+          offset_size.size = dict_leve1.size;
           break;
         }
       }
-      return;
+      return offset_size;
     }
 
     //================================
@@ -189,17 +190,17 @@ class Dictionary {
             if (dict_level2.name == key_parts[0]) {
               for (const dict_level3 of dict_level2.values) {
                 if (dict_level3.name == key_parts[1]) {
-                  offset_size_ptr.offset = dict_level3.offset;
-                  offset_size_ptr.size = dict_level3.size;
-                  offset_size_ptr.type = dict_level3.type;
-                  break;
+                  offset_size.offset = dict_level3.offset;
+                  offset_size.size = dict_level3.size;
+                  return offset_size;
                 }
               }
             }
           }
         }
       }
-      return;
+
+      return offset_size;
     }
 
     //================================
@@ -210,23 +211,19 @@ class Dictionary {
         if (key_level1 == dict_level1.name) {
           for (const dict_level2 of dict_level1.fields) {
             if (dict_level2.name == key) {
-              offset_size_ptr.offset = dict_level2.offset;
-              offset_size_ptr.size = dict_level2.size;
-              break;
+              offset_size.offset = dict_level2.offset;
+              offset_size.size = dict_level2.size;
+              return offset_size;
             }
           }
         }
       }
     }
-
-    return;
+    return offset_size;
   }
 
   assign_my_data_to_bus(key: string, data: Uint8Array): void {
-    let offset_size: offset_size_t;
-    offset_size = {} as offset_size_t;
-
-    this.get_offset_size(this.whoami, key, offset_size);
+    const offset_size = this.get_offset_size(this.whoami, key);
 
     memcpy(
       this.dictionary_data,
@@ -234,16 +231,15 @@ class Dictionary {
       offset_size.size[0],
       offset_size.offset[0]
     );
+
+    this.set_reset_update(this.whoami, key, false, true);
   }
 
   get_data_from_bus(id: Int8Array, key: string): Uint8Array {
     let data_ret: Uint8Array;
     data_ret = {} as Uint8Array;
 
-    let offset_size: offset_size_t;
-    offset_size = {} as offset_size_t;
-
-    this.get_offset_size(id, key, offset_size);
+    const offset_size = this.get_offset_size(id, key);
 
     data_ret = new Uint8Array(offset_size.size[0]);
     memset(data_ret, 0, offset_size.size[0]);
@@ -256,6 +252,140 @@ class Dictionary {
     );
 
     return data_ret;
+  }
+
+  assign_data_to_bus(id: Int8Array, key: string, data: Uint8Array): void {
+    const offset_size = this.get_offset_size(id, key);
+
+    memcpy(
+      this.dictionary_data,
+      data,
+      offset_size.size[0],
+      offset_size.offset[0]
+    );
+
+    this.set_reset_update(id, key, true, true);
+  }
+
+  set_reset_update(
+    id: Int8Array,
+    key: string,
+    local_remote: boolean,
+    set_reset: boolean
+  ): void {
+    let key_level1: string;
+    key_level1 = "agent" + String(id[0]);
+
+    //===============================
+
+    // Using only agent id
+    if (key == "") {
+      for (const dict_leve11 of this.dictionary_structure) {
+        if (key_level1 == dict_leve11.name) {
+          for (const dict_level2 of dict_leve11.fields) {
+            if (!local_remote) dict_level2.isUpdatedLocal = set_reset;
+            else dict_level2.isUpdatedRemote = set_reset;
+          }
+          break;
+        }
+      }
+      return;
+    }
+
+    const key_parts = key.split("/");
+
+    if (key_level1.length > 1) key = key_parts[0];
+
+    for (const dict_leve11 of this.dictionary_structure) {
+      if (key_level1 == dict_leve11.name) {
+        for (const dict_level2 of dict_leve11.fields) {
+          if (dict_level2.name == key) {
+            if (!local_remote) dict_level2.isUpdatedLocal = set_reset;
+            else dict_level2.isUpdatedRemote = set_reset;
+          }
+        }
+        break;
+      }
+    }
+
+    return;
+  }
+
+  packet_add(
+    packet: Uint8Array,
+    offset: Uint32Array,
+    size: Uint32Array
+  ): Uint8Array {
+    let curr_packet_lenght: number = packet.length;
+    let packet_buffer: Uint8Array = new Uint8Array(curr_packet_lenght);
+    memcpy(packet_buffer, packet, curr_packet_lenght, 0, 0);
+
+    packet = new Uint8Array(curr_packet_lenght + 4 + size[0]);
+    packet[curr_packet_lenght] = offset[0] & 0xff;
+    packet[curr_packet_lenght + 1] = offset[0] >> 8;
+    packet[curr_packet_lenght + 2] = size[0] & 0xff;
+    packet[curr_packet_lenght + 3] = size[0] >> 8;
+
+    memcpy(packet, packet_buffer, curr_packet_lenght, 0, 0);
+
+    memcpy(
+      packet,
+      this.dictionary_data,
+      size[0],
+      curr_packet_lenght + 4,
+      offset[0]
+    );
+
+    return packet;
+  }
+
+  packet_process_transmit(): Uint8Array {
+    const key_level1: string = "agent" + String(this.whoami[0]);
+
+    // Reset packet to be sent
+    let packet: Uint8Array = new Uint8Array(0);
+
+    // So it will filter what the data that updated, every each data that update, it will be sent
+    for (const level1 of this.dictionary_structure) {
+      if (level1.name == key_level1) {
+        for (const level2 of level1.fields) {
+          if (level2.isUpdatedLocal) {
+            packet = this.packet_add(packet, level2.offset, level2.size);
+            level2.isUpdatedLocal = false;
+          }
+        }
+        break;
+      }
+    }
+
+    return packet;
+  }
+
+  packet_process_receive(packet: Uint8Array): void {
+    for (let it = 0; it < packet.length; ) {
+      // Get offset and size
+      const offset: Uint32Array = single_uint32(
+        packet[it] | (packet[it + 1] << 0x08)
+      );
+      const size: Uint32Array = single_uint32(
+        packet[it + 2] | (packet[it + 3] << 0x08)
+      );
+      it += 4;
+
+      // COpy to data bus
+      memcpy(this.dictionary_data, packet, size[0], offset[0], it);
+
+      it += size[0];
+
+      // Update state
+      for (const level1 of this.dictionary_structure) {
+        for (const level2 of level1.fields) {
+          if (level2.offset[0] == offset[0]) {
+            level2.isUpdatedRemote = true;
+          }
+        }
+      }
+    }
   }
 }
 

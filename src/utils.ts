@@ -21,7 +21,6 @@ interface any_onj_t {
 interface offset_size_t {
   offset: Uint32Array;
   size: Uint32Array;
-  type: string;
 }
 
 //==============================================================
