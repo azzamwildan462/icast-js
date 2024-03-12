@@ -7,12 +7,23 @@ enum MULTICAST_DEFS {
   ADDRESS_PROHIBITED = -1,
   SUCCESS = 0,
   USE_DEFAULT_IFACE = 1,
+  RTS_TRUE = 1,
+  RTS_FALSE,
 }
 
 enum DICTIONARY_DEFS {
   EMPTY_DICTIONARY = -3,
   INVALID_DICTIONARY_PATH = -2,
   INVALID_ID = -1,
+  SUCCESS = 0,
+}
+
+enum CONFIG_DEFS {
+  ERROR = -1,
+  SUCCESS = 0,
+}
+
+enum ICAST_DEFS {
   SUCCESS = 0,
 }
 
@@ -104,9 +115,29 @@ function dict_types_to_size(input_str: string): Uint32Array {
   return single_uint32(ret_size);
 }
 
+function ip_addr_to_address(
+  ip_addr: string,
+  netmask: Uint8Array = single_uint8(24)
+): Uint32Array {
+  let ret: Uint32Array = single_uint32(0);
+
+  const ip_num = ip_addr.split(".").map(Number);
+  const mask = 32 - netmask[0];
+
+  ret[0] = ip_num[3] & ((1 << mask) - 1);
+
+  return ret;
+}
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export {
   MULTICAST_DEFS,
   DICTIONARY_DEFS,
+  CONFIG_DEFS,
+  ICAST_DEFS,
   any_onj_t,
   offset_size_t,
   memset,
@@ -118,4 +149,6 @@ export {
   get_time_now_ms,
   read_json_blocking,
   dict_types_to_size,
+  ip_addr_to_address,
+  delay,
 };

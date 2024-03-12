@@ -1,11 +1,12 @@
 import { single_int8 } from "./utils";
 import * as os from "os";
-import { MULTICAST_DEFS } from "./utils";
+import { MULTICAST_DEFS, any_onj_t } from "./utils";
 
 class Multicast {
   async init(
     ip: string,
     port: Uint16Array,
+    period_ms: Uint16Array,
     nw_iface: string
   ): Promise<Int8Array> {
     return single_int8(99);
@@ -34,11 +35,18 @@ class Multicast {
     return single_int8(MULTICAST_DEFS.SUCCESS);
   }
 
-  find_interface_ip(nw_iface: string, ip_addr_ptr: any): Int8Array {
+  find_interface_ip(nw_iface: string, ip_addr_ptr: any_onj_t): Int8Array {
     let ret: Int8Array = single_int8(MULTICAST_DEFS.SUCCESS);
 
     if (nw_iface == "") {
       ret[0] = MULTICAST_DEFS.USE_DEFAULT_IFACE;
+      ip_addr_ptr.value = this.find_ip_of_default_gateway();
+
+      if (ip_addr_ptr.value == "") {
+        ret[0] = MULTICAST_DEFS.INTERFACE_NOT_CONNECTED_TO_NETWORK;
+        return ret;
+      }
+
       return ret;
     } else if (nw_iface == "lo") {
       ret[0] = MULTICAST_DEFS.PROHIBITED_INTERFACE;
@@ -59,9 +67,32 @@ class Multicast {
       return ret;
     }
 
-    ip_addr_ptr = ip_addr;
+    ip_addr_ptr.value = ip_addr;
 
     return ret;
+  }
+
+  find_ip_of_default_gateway(): string {
+    const interfaces: any = os.networkInterfaces();
+    let ipAddress: string = "";
+
+    // Iterate through network interfaces
+    for (const key in interfaces) {
+      // Check for the wifi interface
+      if (
+        interfaces[key][0].internal == false &&
+        interfaces[key][0].mac &&
+        interfaces[key][0].mac !== "00:00:00:00:00:00"
+      ) {
+        // If it has ip address
+        if (interfaces[key][0].family === "IPv4") {
+          ipAddress = interfaces[key][0].address;
+          break;
+        }
+      }
+    }
+
+    return ipAddress;
   }
 }
 

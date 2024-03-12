@@ -8,6 +8,7 @@ import {
 
 const m_ip = "224.16.32.10";
 const m_port = 6475;
+const m_period_ms = 50;
 
 describe("Multicast Class structure", () => {
   it("should have a structure from multicast abstract", async () => {
@@ -15,7 +16,7 @@ describe("Multicast Class structure", () => {
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
     await expect(
-      multicastV1.init(m_ip, single_uint16(m_port))
+      multicastV1.init(m_ip, single_uint16(m_port), single_uint16(m_period_ms))
     ).resolves.not.toEqual(single_int8(99));
     expect(multicastV1.send("irisits")).not.toEqual(single_int8(99));
     expect(multicastV1.close()).not.toEqual(single_int8(99));
@@ -30,7 +31,7 @@ describe("Multicast basic", () => {
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
     await expect(
-      multicastV1.init(m_ip, single_uint16(m_port))
+      multicastV1.init(m_ip, single_uint16(m_port), single_uint16(m_period_ms))
     ).resolves.toEqual(single_int8(MULTICAST_DEFS.SUCCESS));
   });
   it("should have a valid wall timer", (done) => {
@@ -51,7 +52,11 @@ describe("Multicast basic", () => {
     const mock_callback_on_recv = jest.fn();
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
-    await multicastV1.init(m_ip, single_uint16(m_port));
+    await multicastV1.init(
+      m_ip,
+      single_uint16(m_port),
+      single_uint16(m_period_ms)
+    );
 
     const spy2 = jest.spyOn(multicastV1.sock, "close");
     const spy = jest.spyOn(multicastV1, "close");
@@ -67,7 +72,11 @@ describe("Multicast basic", () => {
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
     await expect(
-      multicastV1.init("192.168.1.89", single_uint16(m_port))
+      multicastV1.init(
+        "192.168.1.89",
+        single_uint16(m_port),
+        single_uint16(m_period_ms)
+      )
     ).resolves.toEqual(single_int8(MULTICAST_DEFS.ADDRESS_PROHIBITED));
   });
 
@@ -76,7 +85,12 @@ describe("Multicast basic", () => {
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
     await expect(
-      multicastV1.init("224.168.1.89", single_uint16(m_port), "eno69")
+      multicastV1.init(
+        "224.168.1.89",
+        single_uint16(m_port),
+        single_uint16(m_period_ms),
+        "eno69"
+      )
     ).resolves.toEqual(single_int8(MULTICAST_DEFS.INTERFACE_NOT_FOUND));
   });
 
@@ -85,7 +99,12 @@ describe("Multicast basic", () => {
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
     await expect(
-      multicastV1.init("224.168.1.89", single_uint16(m_port), "lo")
+      multicastV1.init(
+        "224.168.1.89",
+        single_uint16(m_port),
+        single_uint16(m_period_ms),
+        "lo"
+      )
     ).resolves.toEqual(single_int8(MULTICAST_DEFS.PROHIBITED_INTERFACE));
   });
 });
@@ -97,7 +116,11 @@ describe("Multicast send and recv", () => {
     const mock_callback_on_recv = jest.fn();
     const multicastV1 = new MulticastV1(mock_callback_on_recv);
 
-    await multicastV1.init(m_ip, single_uint16(m_port));
+    await multicastV1.init(
+      m_ip,
+      single_uint16(m_port),
+      single_uint16(m_period_ms)
+    );
 
     const spy2 = jest.spyOn(multicastV1.sock, "send");
     const spy = jest.spyOn(multicastV1, "send");
@@ -123,15 +146,27 @@ describe("Multicast send and recv", () => {
 
     mock_callback_on_recv.mockImplementation((data: any, sender: any) => {
       recv_data = data.toString();
-      recv_addr = sender.address;
+      recv_addr = sender;
     });
 
-    await multicastV1.init(m_ip, single_uint16(m_port));
+    await multicastV1.init(
+      m_ip,
+      single_uint16(m_port),
+      single_uint16(m_period_ms),
+      "",
+      true
+    );
 
     const cllbck_recv = jest.fn();
     const m_sender = new MulticastV1(cllbck_recv);
 
-    m_sender.init(m_ip, single_uint16(m_port));
+    m_sender.init(
+      m_ip,
+      single_uint16(m_port),
+      single_uint16(m_period_ms),
+      "",
+      true
+    );
     m_sender.send(msg_to_send);
 
     // wait a bit ms
